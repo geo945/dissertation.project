@@ -1,4 +1,5 @@
 const express = require('express');
+const {UserService} = require("./services/user/user");
 const app = express();
 
 const PORT = process.env.PORT || 3000;
@@ -11,7 +12,8 @@ app.get('/health', (req, res) => {
     res.send('Server is up and running!');
 });
 
-// Start the server
+app.post('/user',() => (req, res) => UserService.insert(req, res))
+
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
