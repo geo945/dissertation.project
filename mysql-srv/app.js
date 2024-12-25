@@ -18,7 +18,7 @@ app.get('/health', (req, res) => {
     sequelize.authenticate()
         .then(() => {
             return res.status(200).json({
-                message: 'Connection to database has been established successfully. Server is up and running!',
+                message: 'Connection to MySQL database has been established successfully. Server is up and running!',
             });
         })
         .catch((err) => {
