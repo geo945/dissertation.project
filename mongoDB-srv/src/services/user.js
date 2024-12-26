@@ -82,22 +82,33 @@ const UserService = {
             // Complex filters
             const filters = {
                 $and: [
-                    { age: { $gte: 25, $lte: 50 } }, // Age between 25 and 50
-                    { isMarried: false }, // Only unmarried users
+                    // Age filters: Users aged between 30 and 45, or users aged above 60
+                    {
+                        $or: [
+                            { age: { $gte: 30, $lte: 45 } }, // Between 30 and 45 years
+                            { age: { $gte: 60 } } // 60 years and above
+                        ]
+                    },
+
+                    // Date of Birth filters: Users born before 1980 or after 1990
+                    {
+                        $or: [
+                            { dateOfBirth: { $lte: new Date('1980-01-01') } }, // Born before 1980
+                            { dateOfBirth: { $gte: new Date('1990-01-01') } } // Born after 1990
+                        ]
+                    },
+
+                    // Complex country filter: Users with addresses in 'USA' or 'Canada', but exclude 'UK'
                     {
                         addresses: {
                             $elemMatch: {
-                                country: { $in: ['USA', 'Canada'] }, // At least one address in USA or Canada
+                                country: { $in: ['USA', 'Canada', 'London', 'Romania', 'Hungary', 'Greece'] }, // At least one address in 'USA' or 'Canada'
                                 purchaseDate: {
-                                    $gte: new Date('2020-01-01'), // Purchased after Jan 1, 2020
+                                    $gte: new Date('2018-01-01') // Purchased after January 1, 2018
                                 },
-                            },
-                        },
+                            }
+                        }
                     },
-                ],
-                $or: [
-                    { firstName: /John/i }, // First name contains "John" (case-insensitive)
-                    { lastName: /Doe/i }, // OR last name contains "Doe" (case-insensitive)
                 ],
             };
 

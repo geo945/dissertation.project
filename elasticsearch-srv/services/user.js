@@ -141,25 +141,35 @@ const UserService = {
             const filters = {
                 bool: {
                     must: [
-                        { range: { age: { gte: 25, lte: 50 } } },
-                        { term: { isMarried: false } },
+                        {
+                            bool: {
+                                should: [
+                                    { range: { age: { gte: 30, lte: 45 } } },
+                                    { range: { age: { gte: 60 } } }
+                                ]
+                            }
+                        },
+                        {
+                            bool: {
+                                should: [
+                                    { range: { dateOfBirth: { lte: '1980-01-01' } } },
+                                    { range: { dateOfBirth: { gte: '1990-01-01' } } }
+                                ]
+                            }
+                        },
                         {
                             nested: {
                                 path: "addresses",
                                 query: {
                                     bool: {
                                         must: [
-                                            { terms: { "addresses.country": ["USA", "Canada"] } },
-                                            { range: { "addresses.purchaseDate": { gte: '2020-01-01' } } }
+                                            { terms: { "addresses.country": ["USA", "Canada", "London", "Romania", "Hungary", "Greece"] } },
+                                            { range: { "addresses.purchaseDate": { gte: '2018-01-01' } } }
                                         ]
                                     }
                                 }
                             }
                         }
-                    ],
-                    should: [
-                        { match: { firstName: "John" } },
-                        { match: { lastName: "Doe" } }
                     ]
                 }
             };
