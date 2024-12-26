@@ -7,8 +7,19 @@ const app = express();
 app.use(express.json());
 
 // Routes
-const userRoutes = require("./src/routes/index");
+const userRoutes = require("./src/routes/user");
 app.use("/user", userRoutes);
+
+mongoose.set('debug', (collectionName, method, query, doc, options) => {
+    const start = Date.now();
+    console.log(`Mongoose Query Started: ${collectionName}.${method} - Query:`, query, options || '');
+
+    // Track execution time when the query finishes
+    return Promise.resolve().then(() => {
+        const duration = Date.now() - start;
+        console.log(`Mongoose Query Completed: ${collectionName}.${method} - Duration: ${duration}ms`);
+    });
+});
 
 // MongoDB Connection
 mongoose
