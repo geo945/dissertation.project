@@ -10,8 +10,22 @@ const createUserIndex = async () => {
                 body: {
                     mappings: {
                         properties: {
-                            username: { type: 'text' },
-                            email: { type: 'keyword' }, // Email should be keyword for uniqueness
+                            username: { type: 'text' }, // Allows full-text search
+                            firstName: { type: 'text' }, // Allows full-text search
+                            lastName: { type: 'text' }, // Allows full-text search
+                            email: { type: 'keyword' }, // Exact matches, ideal for unique fields
+                            age: { type: 'integer' }, // Number field for integer values
+                            dateOfBirth: { type: 'date' }, // Date field
+                            isMarried: { type: 'boolean' }, // Boolean field
+                            addresses: {
+                                type: 'nested', // For objects within arrays
+                                properties: {
+                                    street: { type: 'text' }, // Allows full-text search
+                                    city: { type: 'text' }, // Allows full-text search
+                                    country: { type: 'keyword' }, // Exact matches
+                                    purchaseDate: { type: 'date' }, // Date field
+                                },
+                            },
                         },
                     },
                 },
@@ -23,7 +37,7 @@ const createUserIndex = async () => {
     } catch (error) {
         console.error(`Error while trying to create users index: ${error}`);
     }
-}
+};
 
 module.exports = {
     createUserIndex
