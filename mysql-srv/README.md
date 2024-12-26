@@ -4,7 +4,7 @@
 
 2. Create .env file following the .env.example
 
-3. Setup MySQL database ` docker-compose up -d `
+3. Setup MySQL database ` docker-compose up -d `. Make sure to have Docker Desktop installed.
 
 4. Start application ` npm run start `
 
