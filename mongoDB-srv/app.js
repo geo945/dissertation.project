@@ -26,7 +26,7 @@ app.use(cors());
 // Routes
 app.get('/health', (req, res) => {
     mongoose
-        .connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+        .connect(process.env.MONGO_URI)
         .then(() => {
             return res.status(200).json({
                 message: 'Connection to mongoDB database has been established successfully. Server is up and running!',
@@ -42,6 +42,10 @@ app.get('/health', (req, res) => {
 });
 app.use("/user", userRoutes);
 
-// Start the Server
+mongoose
+    .connect(process.env.MONGO_URI)
+    .then(() => console.log('Connection to mongoDB database has been established successfully. Server is up and running!'))
+    .catch((err) => console.error(err.message));
 
+// Start the Server
 app.listen(PORT, () => console.log(`Server running on port ${PORT}.`));
