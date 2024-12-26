@@ -8,6 +8,12 @@
 
 4. Start application ` npm run start `
 
-# Check MongoDB container
+# Check Elasticsearch container
 
 Run ` docker ps `
+
+# Open kibana interface
+
+1. Install kibana 
+
+2. Run ` kibana ` in the terminal
