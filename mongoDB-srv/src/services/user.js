@@ -26,37 +26,50 @@ const UserService = {
     fetchAll: async (req, res) => {
         try {
             // Fetch all users from the database
-            const start = performance.now()
+            const start = performance.now();
 
-            // Complex filters
+            // Complex filters for age, country, and date of birth
             const filters = {
                 $and: [
-                    { age: { $gte: 25, $lte: 50 } }, // Age between 25 and 50
-                    { isMarried: false }, // Only unmarried users
+                    // Age filters: Users aged between 30 and 45, or users aged above 60
+                    {
+                        $or: [
+                            { age: { $gte: 30, $lte: 45 } }, // Between 30 and 45 years
+                            { age: { $gte: 60 } } // 60 years and above
+                        ]
+                    },
+
+                    // Date of Birth filters: Users born before 1980 or after 1990
+                    {
+                        $or: [
+                            { dateOfBirth: { $lte: new Date('1980-01-01') } }, // Born before 1980
+                            { dateOfBirth: { $gte: new Date('1990-01-01') } } // Born after 1990
+                        ]
+                    },
+
+                    // Complex country filter: Users with addresses in 'USA' or 'Canada', but exclude 'UK'
                     {
                         addresses: {
                             $elemMatch: {
-                                country: { $in: ['USA', 'Canada'] }, // At least one address in USA or Canada
+                                country: { $in: ['USA', 'Canada', 'London', 'Romania', 'Hungary', 'Greece'] }, // At least one address in 'USA' or 'Canada'
                                 purchaseDate: {
-                                    $gte: new Date('2020-01-01'), // Purchased after Jan 1, 2020
+                                    $gte: new Date('2018-01-01') // Purchased after January 1, 2018
                                 },
-                            },
-                        },
+                            }
+                        }
                     },
-                ],
-                $or: [
-                    { firstName: /John/i }, // First name contains "John" (case-insensitive)
-                    { lastName: /Doe/i }, // OR last name contains "Doe" (case-insensitive)
                 ],
             };
 
-            await User.find(filters)
+            // Perform the database query with the complex filters
+            const users = await User.find(filters);
 
-            const end = performance.now()
+            const end = performance.now();
 
-            console.log(`MongoDB Query Completed: users.fetchAll - Duration: ${end-start}ms`);
+            console.log(`MongoDB Query Completed: users.fetchAll - Duration: ${end - start}ms`);
+
             // Send the fetched users as the response
-            res.status(200).json(`users fetched`);
+            res.status(200).json(users);
         } catch (err) {
             res.status(500).json({ message: 'Failed to fetch all users', error: err.message });
         }
@@ -107,12 +120,33 @@ const UserService = {
             // Complex filters
             const filters = {
                 $and: [
-                    { age: { $gte: 25, $lte: 50 } }, // Age between 25 and 50
-                    { isMarried: false }, // Only unmarried users
-                ],
-                $or: [
-                    { firstName: /First/i }, // First name contains "John" (case-insensitive)
-                    { lastName: /Last/i }, // OR last name contains "Doe" (case-insensitive)
+                    // Age filters: Users aged between 30 and 45, or users aged above 60
+                    {
+                        $or: [
+                            { age: { $gte: 30, $lte: 45 } }, // Between 30 and 45 years
+                            { age: { $gte: 60 } } // 60 years and above
+                        ]
+                    },
+
+                    // Date of Birth filters: Users born before 1980 or after 1990
+                    {
+                        $or: [
+                            { dateOfBirth: { $lte: new Date('1980-01-01') } }, // Born before 1980
+                            { dateOfBirth: { $gte: new Date('1990-01-01') } } // Born after 1990
+                        ]
+                    },
+
+                    // Complex country filter: Users with addresses in 'USA' or 'Canada', but exclude 'UK'
+                    {
+                        addresses: {
+                            $elemMatch: {
+                                country: { $in: ['USA', 'Canada', 'London', 'Romania', 'Hungary', 'Greece'] }, // At least one address in 'USA' or 'Canada'
+                                purchaseDate: {
+                                    $gte: new Date('2018-01-01') // Purchased after January 1, 2018
+                                },
+                            }
+                        }
+                    },
                 ],
             };
 
@@ -123,6 +157,29 @@ const UserService = {
             console.log(`MongoDB Query Completed: users.updateMany - Duration: ${end-start}ms`);
             // Send the fetched users as the response
             res.status(200).json('users updated');
+        } catch (err) {
+            res.status(500).json({ message: 'Failed to update users', error: err.message });
+        }
+    },
+    Aggregate: async (req, res) => {
+        try {
+            // Fetch all users from the database
+            const start = performance.now()
+
+            const usersByCountry = await User.aggregate([
+                { $unwind: "$addresses" },  // Unwind the addresses array to group by country
+                { $group: {
+                        _id: "$addresses.country",  // Group by country
+                        averageAge: { $avg: "$age" }, // Calculate the average age
+                        totalUsers: { $sum: 1 }  // Count the total number of users in that country
+                    }},
+                { $sort: { totalUsers: -1 } }  // Sort by totalUsers in descending order
+            ]);
+            const end = performance.now()
+
+            console.log(`MongoDB Query Completed: users.aggregate - Duration: ${end-start}ms`);
+            // Send the fetched users as the response
+            res.status(200).json(usersByCountry);
         } catch (err) {
             res.status(500).json({ message: 'Failed to update users', error: err.message });
         }

@@ -11,4 +11,6 @@ router.delete('/', UserService.deleteAll)
 
 router.patch('/', UserService.UpdateMany)
 
+router.get('/aggregate', UserService.Aggregate)
+
 module.exports = router;
