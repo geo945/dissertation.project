@@ -1,15 +1,21 @@
+require("dotenv").config();
 const express = require('express');
+const cors = require('cors')
+
 const elasticSearchClient = require ('./elasticsearch/index')
 const userRoutes = require('./routes/user')
-const {createUserIndex} = require("./utils");
+const { createUserIndex } = require("./utils");
 
-const app = express();
+const PORT = process.env.PORT || 3000;
+const app = express()
 
+// Middlewares
 app.use(express.json());
+app.use(cors());
 
 createUserIndex();
 
-app.use('/user', userRoutes);
+// Routes
 app.get('/health', (req, res) => {
     elasticSearchClient.ping({}, (error) => {
             if (error) {
@@ -21,8 +27,8 @@ app.get('/health', (req, res) => {
         .then(() => res.status(200).json({message: 'Connection to elasticsearch database has been established successfully. Server is up and running!'}))
         .catch((err) => res.status(500).json({error: {message: err.message}}))
 });
+app.use('/user', userRoutes);
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}.`);
 });

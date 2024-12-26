@@ -1,23 +1,25 @@
 const { Op, Sequelize } = require("sequelize");
-const User = require("../models/User"); // Sequelize User model
-const Address = require("../models/Address"); // Sequelize Address model
-const { generateUsers } = require("../../../utils/index"); // Adjust path as necessary
+
+const User = require("../models/User");
+const Address = require("../models/Address");
+const { generateUsers } = require("../../../utils/index");
 const sequelize = require('../sequelize/sequelize');
 
 const UserService = {
     insert: async (req, res) => {
         try {
             const numberOfUsers = req.body?.numberOfUsers || 1000;
-            const batchSize = 100000; // Set the batch size to 100,000
-            const totalBatches = Math.ceil(numberOfUsers / batchSize); // Calculate the number of batches
-            const usersData = generateUsers(numberOfUsers, 1);
+            const batchSize = 100000;
+            const totalBatches = Math.ceil(numberOfUsers / batchSize);
+            const usersData = generateUsers(numberOfUsers);
+            let totalQueriesTime = 0;
 
-            const start = performance.now();
             let currentUserIndex = 0;
 
             // Loop through each batch and insert users in chunks
             for (let batch = 0; batch < totalBatches; batch++) {
-                const batchUsers = usersData.slice(currentUserIndex, currentUserIndex + batchSize); // Get the current batch of users
+                // Get the current batch of users
+                const batchUsers = usersData.slice(currentUserIndex, currentUserIndex + batchSize);
 
                 const users = batchUsers.map(user => ({
                     username: user.username,
@@ -29,14 +31,19 @@ const UserService = {
                     isMarried: user.isMarried,
                 }));
 
-                // Begin a new transaction for this batch
                 const transaction = await sequelize.transaction();
 
                 try {
-                    // Bulk insert users for the current batch
+                    const startUserQueryTime = performance.now();
+
                     const createdUsers = await User.bulkCreate(users, { transaction });
 
-                    // Prepare address data for the users created in this batch
+                    const endUserQueryTime = performance.now();
+
+                    totalQueriesTime += endUserQueryTime - startUserQueryTime;
+
+                    console.log(`Batch ${batch}. MySQL Query Completed: users.insert - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
+
                     const addresses = [];
                     for (let i = 0; i < createdUsers.length; i++) {
                         const createdUser = createdUsers[i];
@@ -54,30 +61,30 @@ const UserService = {
                         }
                     }
 
-                    // Bulk insert addresses for this batch
+                    const startUserAddressQueryTime = performance.now();
+
                     await Address.bulkCreate(addresses, { transaction });
 
-                    // Commit the transaction for this batch
+                    const endUserAddressQueryTime = performance.now();
+
+                    totalQueriesTime += endUserAddressQueryTime - startUserAddressQueryTime;
+
+                    console.log(`Batch ${batch}. MySQL Query Completed: users.address.insert - Duration: ${endUserAddressQueryTime - startUserAddressQueryTime}ms.`);
+
                     await transaction.commit();
 
-                    // Move to the next batch
                     currentUserIndex += batchSize;
-
-                    console.log(`Batch ${batch + 1} inserted successfully.`);
                 } catch (err) {
-                    console.log(err)
-                    // If any error occurs, rollback the transaction for this batch
                     await transaction.rollback();
                     console.error(`Error in batch ${batch + 1}:`, err.message);
                     res.status(500).json({ message: "Failed to insert users", error: err.message });
-                    return; // Exit early if an error occurs
+                    return;
                 }
             }
 
-            const end = performance.now();
-            console.log(`MySQL Query Completed: users.insert - Duration: ${end - start}ms`);
+            console.log(`MySQL Total Query Completed: users.insert - Total Insert Duration: ${totalQueriesTime}ms.`);
 
-            res.status(201).json(`${numberOfUsers} Users inserted successfully.`);
+            res.status(201).json(`${numberOfUsers} users successfully inserted.`);
         } catch (err) {
             res.status(500).json({ message: "Failed to insert users", error: err.message });
         }
@@ -85,8 +92,6 @@ const UserService = {
 
     fetchAll: async (req, res) => {
         try {
-            const start = performance.now();
-
             const filters = {
                 where: {
                     [Op.and]: [
@@ -117,11 +122,12 @@ const UserService = {
                 },
                 include: {
                     model: Address,
-                    as: "addresses",  // Make sure this alias matches the alias in your associations
-                    required: true,    // Ensures that the query will only return users with matching addresses
+                    as: "addresses",
+                    required: true,
                 },
             };
 
+            const startUserQueryTime = performance.now();
 
             const users = await User.findAll({
                 include: {
@@ -131,12 +137,14 @@ const UserService = {
                 ...filters
             });
 
-            const end = performance.now();
-            console.log(`MySQL Query Completed: users.fetchAll - Duration: ${end - start}ms`);
+            const endUserQueryTime = performance.now();
+
+            console.log(`MySQL Query Completed: users.fetchAll - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
 
             res.status(200).json({
                 message: `Fetched ${users.length} users.`,
-                first_user: users[0]
+                count: users.length,
+                values: users.slice(0, 10000)
             });
         } catch (err) {
             res.status(500).json({ message: "Failed to fetch all users", error: err.message });
@@ -145,9 +153,6 @@ const UserService = {
 
     deleteAll: async (req, res) => {
         try {
-            const start = performance.now();
-
-            // Build the filters for the main user table
             const filters = {
                 where: {
                     [Op.and]: [
@@ -168,7 +173,7 @@ const UserService = {
                 include: {
                     model: Address,
                     as: "addresses",
-                    required: true,  // Ensures that the query only returns users who have addresses that match the conditions
+                    required: true,
                     where: {
                         country: {
                             [Op.in]: ['USA', 'Canada', 'London', 'Romania', 'Hungary', 'Greece']
@@ -180,94 +185,103 @@ const UserService = {
                 },
             };
 
-            // Perform the delete query
+            const startUserQueryTime = performance.now();
+
             const result = await User.destroy({
                 include: {
                     model: Address,
                     as: 'addresses'
                 },
-                where: {}
-                // ...filters
+                where: {},
+                ...filters
             });
 
-            const end = performance.now();
-            console.log(`MySQL Query Completed: users.deleteAll - Duration: ${end - start}ms`);
+            const endUserQueryTime = performance.now();
 
-            res.status(200).json(`${result} Users deleted.`);
+            console.log(`MySQL Query Completed: users.deleteAll - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
+
+            res.status(200).json(result);
         } catch (err) {
             res.status(500).json({ message: "Failed to delete users", error: err.message });
         }
     },
 
-    UpdateMany: async (req, res) => {
+    updateMany: async (req, res) => {
         try {
-            const start = performance.now();
+            const filters = {
+                where: {
+                    [Op.and]: [
+                        {
+                            [Op.or]: [
+                                { age: { [Op.between]: [30, 45] } },
+                                { age: { [Op.gte]: 60 } },
+                            ],
+                        },
+                        {
+                            [Op.or]: [
+                                { dateOfBirth: { [Op.lte]: new Date("1980-01-01") } },
+                                { dateOfBirth: { [Op.gte]: new Date("1990-01-01") } },
+                            ],
+                        },
+                    ],
+                },
+                include: {
+                    model: Address,
+                    as: "addresses",
+                    where: {
+                        country: {
+                            [Op.in]: ['USA', 'Canada', 'London', 'Romania', 'Hungary', 'Greece'],
+                        },
+                        purchaseDate: {
+                            [Op.gte]: new Date('2018-01-01'),
+                        }
+                    },
+                    required: true,
+                }
+            }
+
+            const startUserQueryTime = performance.now();
 
             const result = await User.update(
                 { isMarried: true },
                 {
-                    where: {
-                        [Op.and]: [
-                            {
-                                [Op.or]: [
-                                    { age: { [Op.between]: [30, 45] } },
-                                    { age: { [Op.gte]: 60 } },
-                                ],
-                            },
-                            {
-                                [Op.or]: [
-                                    { dateOfBirth: { [Op.lte]: new Date("1980-01-01") } },
-                                    { dateOfBirth: { [Op.gte]: new Date("1990-01-01") } },
-                                ],
-                            },
-                        ],
-                    },
-                    include: {
-                        model: Address, // The Address model
-                        as: "addresses", // The alias used in your association
-                        where: {
-                            country: {
-                                [Op.in]: ['USA', 'Canada', 'London', 'Romania', 'Hungary', 'Greece'],
-                            },
-                            purchaseDate: {
-                                [Op.gte]: new Date('2018-01-01'),
-                            }
-                        },
-                        required: true, // Ensures that the user has at least one address matching the condition
-                    }
+                    where: {},
+                    ...filters
                 }
             );
 
-            const end = performance.now();
-            console.log(`MySQL Query Completed: users.UpdateMany - Duration: ${end - start}ms`);
+            const endUserQueryTime = performance.now();
 
-            res.status(200).json(`${result} Users updated.`);
+            console.log(`MySQL Query Completed: users.UpdateMany - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
+
+            res.status(200).json(result);
         } catch (err) {
             res.status(500).json({ message: "Failed to update users", error: err.message });
         }
     },
 
-    Aggregate: async (req, res) => {
+    aggregate: async (req, res) => {
         try {
-            const start = performance.now();
+            const startUserQueryTime = performance.now();
 
             const usersByCountry = await Address.findAll({
                 attributes: [
-                    "country", // Address country attribute
-                    [Sequelize.fn("AVG", Sequelize.col("user.age")), "averageAge"], // Average age of users
-                    [Sequelize.fn("COUNT", Sequelize.col("user.id")), "totalUsers"], // Total number of users
+                    "country",
+                    [Sequelize.fn("AVG", Sequelize.col("user.age")), "averageAge"],
+                    [Sequelize.fn("COUNT", Sequelize.col("user.id")), "totalUsers"],
                 ],
                 include: {
                     model: User,
-                    as: "user", // Ensure the alias is correct for the association, adjust based on your actual association alias
-                    attributes: [], // Exclude user details for this query, we don't need them
+                    as: "user",
+                    attributes: [], // Exclude user details for this query
                 },
-                group: ["Address.country"], // Group by Address country
-                order: [[Sequelize.literal("totalUsers"), "DESC"]], // Order by total users in descending order
+                group: ["Address.country"],
+                order: [[Sequelize.literal("totalUsers"), "DESC"]],
             });
 
-            const end = performance.now();
-            console.log(`MySQL Query Completed: users.Aggregate - Duration: ${end - start}ms`);
+            const endUserQueryTime = performance.now();
+
+            console.log(`MySQL Query Completed: users.Aggregate - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
 
             res.status(200).json(usersByCountry);
         } catch (err) {

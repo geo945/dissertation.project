@@ -1,6 +1,7 @@
 const { DataTypes, Model } = require('sequelize');
 const sequelize = require('../sequelize/sequelize');
-const User = require('./User'); // Import the User model
+
+const User = require('./User');
 
 class Address extends Model {}
 
@@ -33,6 +34,7 @@ User.hasMany(Address, {
     foreignKey: 'userId',
     as: 'addresses',
 });
+
 Address.belongsTo(User, {
     foreignKey: 'userId',
     as: 'user',

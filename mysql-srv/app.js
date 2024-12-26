@@ -1,15 +1,16 @@
+const dotenv = require('dotenv');
 const express = require('express');
 const cors = require('cors')
-const dotenv = require('dotenv');
+
 const sequelize = require("./src/sequelize/sequelize");
 const userRoutes = require('./src/routes/user')
 
-const app = express();
 const PORT = process.env.PORT || 3000;
+const app = express();
 
 dotenv.config();
 
-// Middleware
+// Middlewares
 app.use(express.json());
 app.use(cors())
 
@@ -29,9 +30,8 @@ app.get('/health', (req, res) => {
             });
         });
 });
-
 app.use('/user', userRoutes)
 
 app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}.`);
 });

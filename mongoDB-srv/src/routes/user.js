@@ -1,5 +1,5 @@
 const express = require('express')
-const {UserService} = require('../services/user')
+const { UserService} = require('../services/user')
 
 const router = express.Router();
 
@@ -9,8 +9,8 @@ router.get('/', UserService.fetchAll)
 
 router.delete('/', UserService.deleteAll)
 
-router.patch('/', UserService.UpdateMany)
+router.patch('/', UserService.updateMany)
 
-router.get('/aggregate', UserService.Aggregate)
+router.get('/aggregate', UserService.aggregate)
 
 module.exports = router;

@@ -1,34 +1,37 @@
 const elasticSearchClient = require('../elasticsearch/index');
-const { generateUsers } = require("../../utils/index"); // Adjust path as necessary
+const { generateUsers } = require("../../utils/index");
 
 const UserService = {
     insert: async (req, res) => {
         try {
-            // Number of users to generate can be passed in request body or default to 1000
             const numberOfUsers = req.body?.numberOfUsers || 1000;
+            let totalQueriesTime = 0;
 
-            // Generate users using the provided function
             const users = generateUsers(numberOfUsers);
 
-            // Bulk insert users into Elasticsearch
             const chunkSize = 200000;
             for (let i = 0; i < users.length; i += chunkSize) {
                 const chunk = users.slice(i, i + chunkSize);
 
-                // Prepare bulk operations for the current chunk
                 const bulkOperations = chunk.flatMap(user => [
                     { index: { _index: 'users', _id: user.id } },
                     user,
                 ]);
 
-                // Execute the bulk operation for the current chunk
-                const start = performance.now();
+                const startUserQueryTime = performance.now();
+
                 await elasticSearchClient.bulk({ refresh: true, body: bulkOperations });
-                const end = performance.now();
-                console.log(`Inserted ${i + chunk.length}/${users.length} users. Chunk ${i} Elasticsearch Query Completed: users.insert - Duration: ${end - start}ms`);
+
+                const endUserQueryTime = performance.now();
+
+                totalQueriesTime += endUserQueryTime - startUserQueryTime
+
+                console.log(`Inserted ${i + chunk.length}/${users.length} users. Chunk ${i} Elasticsearch Query Completed: users.insert - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
             }
 
-            res.status(201).json(`${numberOfUsers} Users inserted successfully.`);
+            console.log(`Elasticsearch Total Query Completed: users.insert - Total Insert Duration: ${totalQueriesTime}ms.`);
+
+            res.status(201).json(`${numberOfUsers} users successfully inserted.`);
         } catch (err) {
             res.status(500).json({ message: 'Failed to insert users', error: err.message });
         }
@@ -36,9 +39,6 @@ const UserService = {
 
     fetchAllWithFilters: async (req, res) => {
         try {
-            const start = performance.now();
-
-            // Construct complex filters using Elasticsearch's query DSL
             const filters = {
                 bool: {
                     must: [
@@ -75,43 +75,54 @@ const UserService = {
                 }
             };
 
-            // Perform the search query
+            const startUserQueryTime = performance.now();
+
             const { hits } = await elasticSearchClient.search({
                 index: 'users',
                 query: filters,
                 size: 10000
             });
 
-            const end = performance.now();
-            console.log(`Elasticsearch Query Completed: users.fetchAll - Duration: ${end - start}ms`);
+            const endUserQueryTime = performance.now();
 
-            res.status(200).json(`Fetched ${hits?.hits.length} users.`);
+            console.log(`Elasticsearch Query Completed: users.fetchAllWithFilters - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
+
+            res.status(200).json({
+                message: `Fetched ${hits?.hits.length} users.`,
+                count: hits.hits.length,
+                values: hits.hits
+            });
         } catch (err) {
-            res.status(500).json({ message: 'Failed to fetch all users', error: err.message });
+            res.status(500).json({ message: 'Failed to fetchAllWithFilters users', error: err.message });
         }
     },
 
     fetchAll: async (req, res) => {
         try {
-            const start = performance.now();
-
-            // Set up the initial search request
-            const scrollSize = 10000; // Number of records per batch
+            const scrollSize = 10000;
             const results = [];
+            let totalQueriesTime = 0;
+
+            const startUserQueryTime = performance.now();
 
             let response = await elasticSearchClient.search({
                 index: 'users',
-                scroll: '1m', // Keep the scroll context alive for 1 minute
+                scroll: '1m',
                 size: scrollSize,
                 query: {
-                    match_all: {} // Matches all documents
+                    match_all: {}
                 },
             });
 
+            const endUserQueryTime = performance.now();
+
+            totalQueriesTime += endUserQueryTime - startUserQueryTime
+
             let scrollId = response._scroll_id;
 
-            // Process initial batch
             results.push(...response.hits.hits);
+
+            const startUserScrollQueryTime = performance.now();
 
             // Keep fetching batches while there are more results
             while (response.hits.hits.length > 0) {
@@ -124,20 +135,24 @@ const UserService = {
                 results.push(...response.hits.hits);
             }
 
-            const end = performance.now();
-            console.log(`Elasticsearch Query Completed: users.fetchAll - Duration: ${end - start}ms`);
-            res.status(200).json(`Fetched ${results.length} users.`);
+            const endUserScrollQueryTime = performance.now();
+
+            totalQueriesTime += endUserScrollQueryTime - startUserScrollQueryTime
+
+            console.log(`Elasticsearch Total Query Completed: users.fetchAll - Total FetchAll Duration: ${totalQueriesTime}ms.`);
+
+            res.status(200).json({
+                message: `Fetched ${results.length} users.`,
+                count: results.length,
+                values: results.slice(0, 10000)
+            });
         } catch (err) {
             res.status(500).json({ message: 'Failed to fetch all users', error: err.message });
         }
     },
 
-
     deleteAll: async (req, res) => {
         try {
-            const start = performance.now();
-
-            // Define complex filters for deletion
             const filters = {
                 bool: {
                     must: [
@@ -174,20 +189,22 @@ const UserService = {
                 }
             };
 
-            // Delete by query
-            await elasticSearchClient.deleteByQuery({
+            const startUserQueryTime = performance.now();
+
+            const result = await elasticSearchClient.deleteByQuery({
                 index: 'users',
-                // query: filters,
+                query: filters,
                 //delete all
-                query: {
-                    match_all: {} // Matches all documents
-                },
+                // query: {
+                //     match_all: {}
+                // },
             });
 
-            const end = performance.now();
-            console.log(`Elasticsearch Query Completed: users.deleteAll - Duration: ${end - start}ms`);
+            const endUserQueryTime = performance.now();
 
-            res.status(200).json('Users deleted');
+            console.log(`Elasticsearch Query Completed: users.deleteAll - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
+
+            res.status(200).json(result);
         } catch (err) {
             res.status(500).json({ message: 'Failed to delete users', error: err.message });
         }
@@ -195,9 +212,6 @@ const UserService = {
 
     updateMany: async (req, res) => {
         try {
-            const start = performance.now();
-
-            // Define complex filters for update
             const filters = {
                 bool: {
                     must: [
@@ -234,7 +248,8 @@ const UserService = {
                 }
             };
 
-            // Update by query
+            const startUserQueryTime = performance.now();
+
             const result = await elasticSearchClient.updateByQuery({
                 index: 'users',
                 script: {
@@ -247,8 +262,9 @@ const UserService = {
                 // },
             });
 
-            const end = performance.now();
-            console.log(`Elasticsearch Query Completed: users.updateMany - Duration: ${end - start}ms`);
+            const endUserQueryTime = performance.now();
+
+            console.log(`Elasticsearch Query Completed: users.updateMany - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
 
             res.status(200).json(result);
         } catch (err) {
@@ -258,31 +274,30 @@ const UserService = {
 
     aggregate: async (req, res) => {
         try {
-            const start = performance.now();
+            const startUserQueryTime = performance.now();
 
-            // Perform aggregation to group users by country and count the number of users in each country
             const resp = await elasticSearchClient.search({
                 index: 'users',
                 aggs: {
                     users_by_country: {
                         nested: {
-                            path: "addresses" // Specify the 'addresses' nested field
+                            path: "addresses"
                         },
                         aggs: {
                             countries: {
                                 terms: {
-                                    field: "addresses.country", // Exact matching with .keyword
-                                    size: 10000 // Adjust size if necessary
+                                    field: "addresses.country",
+                                    size: 10000
                                 },
                                 aggs: {
                                     totalUsers: {
                                         value_count: { field: "addresses.country" }
                                     },
                                     averageAge: {
-                                        reverse_nested: {}, // Step out of the nested context
+                                        reverse_nested: {},
                                         aggs: {
                                             avgAge: {
-                                                avg: { field: "age" } // Calculate average age for users in this country
+                                                avg: { field: "age" }
                                             }
                                         }
                                     }
@@ -294,10 +309,10 @@ const UserService = {
                 size: 0,
             });
 
-            const end = performance.now();
-            console.log(`Elasticsearch Query Completed: users.aggregate - Duration: ${end - start}ms`);
+            const endUserQueryTime = performance.now();
 
-            // Format the response as per your requirement
+            console.log(`Elasticsearch Query Completed: users.aggregate - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
+
             const result = resp.aggregations.users_by_country.countries.buckets.map(bucket => ({
                 country: bucket.key, // Country name
                 totalUsers: bucket.totalUsers.value, // Total number of users in this country
@@ -306,13 +321,10 @@ const UserService = {
 
             res.status(200).json(result);
         } catch (err) {
-            console.error(`Aggregation Error: ${err.message}`);
             res.status(500).json({ message: 'Failed to aggregate users by country', error: err.message });
         }
     }
-
-
-};
+}
 
 module.exports = {
     UserService
