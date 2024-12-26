@@ -8,7 +8,7 @@ const UserService = {
             const numberOfUsers = req.body?.numberOfUsers || 1000;
 
             // Generate users using the provided function
-            const users = generateUsers(numberOfUsers);
+            const users = generateUsers(numberOfUsers, 900003);
 
             const start = performance.now()
 

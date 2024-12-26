@@ -34,11 +34,11 @@ const countries = [
     "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
 ];
 
-const generateUsers = (numberOfUsers) => {
+const generateUsers = (numberOfUsers, from = 1) => {
     const users = [];
     const countriesCount = countries.length;
 
-    for (let i = 1; i <= numberOfUsers; i++) {
+    for (let i = from; i <= numberOfUsers + from; i++) {
         // Always use the same country in a consistent cycling manner
         const country = countries[i % countriesCount];
 
