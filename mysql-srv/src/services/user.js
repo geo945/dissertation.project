@@ -148,7 +148,7 @@ const UserService = {
                 message: `Fetched ${users.length} users.`,
                 totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`,
                 count: users.length,
-                values: users.slice(0, 10000)
+                values: users.slice(0, 1000)
             });
         } catch (err) {
             res.status(500).json({ message: "Failed to fetch all users", error: err.message });
@@ -252,7 +252,7 @@ const UserService = {
             const result = await User.update(
                 { isMarried: true },
                 {
-                    where: {},
+                    // where: {},
                     ...filters
                 }
             );

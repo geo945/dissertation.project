@@ -128,14 +128,13 @@ const UserService = {
 
             const startUserScrollQueryTime = performance.now();
 
-            // Keep fetching batches while there are more results
             while (response.hits.hits.length > 0) {
                 response = await elasticSearchClient.scroll({
                     scroll_id: scrollId,
-                    scroll: '1m', // Extend the scroll timeout
+                    scroll: '1m',
                 });
 
-                scrollId = response._scroll_id; // Update scroll ID
+                scrollId = response._scroll_id;
                 results.push(...response.hits.hits);
             }
 
@@ -149,7 +148,7 @@ const UserService = {
                 message: `Fetched ${results.length} users.`,
                 totalQueryTime: `${totalQueriesTime}ms`,
                 count: results.length,
-                values: results.slice(0, 10000)
+                values: results.slice(0, 1000)
             });
         } catch (err) {
             res.status(500).json({ message: 'Failed to fetch all users', error: err.message });
@@ -199,7 +198,7 @@ const UserService = {
             const result = await elasticSearchClient.deleteByQuery({
                 index: 'users',
                 query: filters,
-                //delete all
+                // delete all
                 // query: {
                 //     match_all: {}
                 // },
@@ -210,7 +209,7 @@ const UserService = {
             console.log(`Elasticsearch Query Completed: users.deleteAll - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
 
             res.status(200).json({
-                message: `Deleted ${result} users.`,
+                message: `Deleted ${result.deleted} users.`,
                 totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`
             });
         } catch (err) {
@@ -256,27 +255,67 @@ const UserService = {
                 }
             };
 
+            const batchSize = 10000;
+            let totalUpdated = 0;
+            let totalQueriesTime = 0;
+
             const startUserQueryTime = performance.now();
 
-            const result = await elasticSearchClient.updateByQuery({
+            const searchResponse = await elasticSearchClient.search({
                 index: 'users',
-                script: {
-                    source: "ctx._source.isMarried = true"
-                },
+                scroll: '5m',
+                size: batchSize,
                 query: filters,
-                // update all
                 // query: {
                 //     match_all: {} // Matches all documents
-                // },
+                // }
             });
 
             const endUserQueryTime = performance.now();
 
-            console.log(`Elasticsearch Query Completed: users.updateMany - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
+            totalQueriesTime += endUserQueryTime - startUserQueryTime
+
+            let scrollId = searchResponse._scroll_id;
+            let hits = searchResponse.hits.hits;
+
+            while (hits.length > 0) {
+                const bulkBody = hits.flatMap(doc => [
+                    { update: { _id: doc._id, _index: 'users' } },
+                    { script: { source: "ctx._source.isMarried = true" } }
+                ]);
+
+                const startUserBulkQueryTime = performance.now();
+
+                const bulkResponse = await elasticSearchClient.bulk({ body: bulkBody });
+
+                const endUserBulkQueryTime = performance.now();
+
+                totalQueriesTime += endUserBulkQueryTime - startUserBulkQueryTime;
+
+                if (bulkResponse.errors) {
+                    console.error("Bulk update errors:", bulkResponse.items.filter(item => item.update.error));
+                }
+
+                totalUpdated += hits.length;
+
+                const scrollResponse = await elasticSearchClient.scroll({
+                    scroll_id: scrollId,
+                    scroll: '5m'
+                });
+
+                scrollId = scrollResponse._scroll_id;
+                hits = scrollResponse.hits.hits;
+
+                console.log(`Processed batch. Total updated so far: ${totalUpdated}`);
+            }
+
+            await elasticSearchClient.clearScroll({ scroll_id: scrollId });
+
+            console.log(`Elasticsearch Query Completed: users.updateMany - Duration: ${totalQueriesTime}ms.`);
 
             res.status(200).json({
-                message: `Updated ${result} users.`,
-                totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`
+                message: `Updated ${totalUpdated} users.`,
+                totalQueryTime: `${totalQueriesTime}ms`
             });
         } catch (err) {
             res.status(500).json({ message: 'Failed to update users', error: err.message });

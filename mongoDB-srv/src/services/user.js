@@ -5,20 +5,27 @@ const UserService = {
     insert: async (req, res) => {
         try {
             const numberOfUsers = req.body?.numberOfUsers || 1000;
+            const users = generateUsers(numberOfUsers, 1);
+            const CHUNK_SIZE = 200000;
+            let totalQueriesTime = 0;
 
-            const users = generateUsers(numberOfUsers);
+            for (let i = 0; i < users.length; i += CHUNK_SIZE) {
+                const chunk = users.slice(i, i + CHUNK_SIZE);
 
-            const startUserQueryTime = performance.now();
+                const startUserQueryTime = performance.now();
 
-            await User.insertMany(users);
+                await User.insertMany(chunk);
 
-            const endUserQueryTime = performance.now();
+                const endUserQueryTime = performance.now();
 
-            console.log(`MongoDB Query Completed: users.insert - Duration: ${endUserQueryTime-startUserQueryTime}ms.`);
+                totalQueriesTime += endUserQueryTime - startUserQueryTime;
+            }
+
+            console.log(`MongoDB Query Completed: users.insert - Duration: ${totalQueriesTime}ms.`);
 
             res.status(201).json({
                 message: `${numberOfUsers} users successfully inserted.`,
-                totalQueryTime: `${endUserQueryTime-startUserQueryTime}ms`
+                totalQueryTime: `${totalQueriesTime}ms`,
             });
         } catch (err) {
             res.status(500).json({ message: 'Failed to insert users', error: err.message });
@@ -66,7 +73,7 @@ const UserService = {
                 message: `Fetched ${users.length} users.`,
                 totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`,
                 count: users.length,
-                values: users.slice(0, 10000)
+                values: users.slice(0, 1000)
             });
         } catch (err) {
             res.status(500).json({ message: 'Failed to fetch all users', error: err.message });
@@ -111,7 +118,7 @@ const UserService = {
             console.log(`MongoDB Query Completed: users.deleteAll - Duration: ${endUserQueryTime-startUserQueryTime}ms.`);
 
             res.status(200).json({
-                message: `Deleted ${result} users.`,
+                message: `Deleted ${result.deletedCount} users.`,
                 totalQueryTime: `${endUserQueryTime-startUserQueryTime}ms`
             });
         } catch (err) {
@@ -157,7 +164,7 @@ const UserService = {
             console.log(`MongoDB Query Completed: users.updateMany - Duration: ${endUserQueryTime-startUserQueryTime}ms.`);
 
             res.status(200).json({
-                message: `Updated ${result} users.`,
+                message: `Updated ${result.modifiedCount} users.`,
                 totalQueryTime: `${endUserQueryTime-startUserQueryTime}ms`
             });
         } catch (err) {
