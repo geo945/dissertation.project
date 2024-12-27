@@ -84,7 +84,10 @@ const UserService = {
 
             console.log(`MySQL Total Query Completed: users.insert - Total Insert Duration: ${totalQueriesTime}ms.`);
 
-            res.status(201).json(`${numberOfUsers} users successfully inserted.`);
+            res.status(201).json({
+                message: `${numberOfUsers} users successfully inserted.`,
+                totalQueryTime: `${totalQueriesTime}ms`
+            });
         } catch (err) {
             res.status(500).json({ message: "Failed to insert users", error: err.message });
         }
@@ -143,6 +146,7 @@ const UserService = {
 
             res.status(200).json({
                 message: `Fetched ${users.length} users.`,
+                totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`,
                 count: users.length,
                 values: users.slice(0, 10000)
             });
@@ -200,7 +204,10 @@ const UserService = {
 
             console.log(`MySQL Query Completed: users.deleteAll - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
 
-            res.status(200).json(result);
+            res.status(200).json({
+                message: `Deleted ${result} users.`,
+                totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`
+            });
         } catch (err) {
             res.status(500).json({ message: "Failed to delete users", error: err.message });
         }
@@ -254,7 +261,10 @@ const UserService = {
 
             console.log(`MySQL Query Completed: users.UpdateMany - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
 
-            res.status(200).json(result);
+            res.status(200).json({
+                message: `Updated ${result} users.`,
+                totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`
+            });
         } catch (err) {
             res.status(500).json({ message: "Failed to update users", error: err.message });
         }
@@ -283,7 +293,10 @@ const UserService = {
 
             console.log(`MySQL Query Completed: users.Aggregate - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
 
-            res.status(200).json(usersByCountry);
+            res.status(200).json({
+                totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`,
+                data: usersByCountry
+            });
         } catch (err) {
             res.status(500).json({ message: "Failed to aggregate users", error: err.message });
         }
