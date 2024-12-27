@@ -31,7 +31,10 @@ const UserService = {
 
             console.log(`Elasticsearch Total Query Completed: users.insert - Total Insert Duration: ${totalQueriesTime}ms.`);
 
-            res.status(201).json(`${numberOfUsers} users successfully inserted.`);
+            res.status(201).json({
+                message: `${numberOfUsers} users successfully inserted.`,
+                totalQueryTime: `${totalQueriesTime}ms`
+            });
         } catch (err) {
             res.status(500).json({ message: 'Failed to insert users', error: err.message });
         }
@@ -89,6 +92,7 @@ const UserService = {
 
             res.status(200).json({
                 message: `Fetched ${hits?.hits.length} users.`,
+                totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`,
                 count: hits.hits.length,
                 values: hits.hits
             });
@@ -143,6 +147,7 @@ const UserService = {
 
             res.status(200).json({
                 message: `Fetched ${results.length} users.`,
+                totalQueryTime: `${totalQueriesTime}ms`,
                 count: results.length,
                 values: results.slice(0, 10000)
             });
@@ -204,7 +209,10 @@ const UserService = {
 
             console.log(`Elasticsearch Query Completed: users.deleteAll - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
 
-            res.status(200).json(result);
+            res.status(200).json({
+                message: `Deleted ${result} users.`,
+                totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`
+            });
         } catch (err) {
             res.status(500).json({ message: 'Failed to delete users', error: err.message });
         }
@@ -266,7 +274,10 @@ const UserService = {
 
             console.log(`Elasticsearch Query Completed: users.updateMany - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
 
-            res.status(200).json(result);
+            res.status(200).json({
+                message: `Updated ${result} users.`,
+                totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`
+            });
         } catch (err) {
             res.status(500).json({ message: 'Failed to update users', error: err.message });
         }
@@ -319,7 +330,10 @@ const UserService = {
                 averageAge: bucket.averageAge.avgAge.value
             }));
 
-            res.status(200).json(result);
+            res.status(200).json({
+                totalQueryTime: `${endUserQueryTime - startUserQueryTime}ms`,
+                data: result
+            });
         } catch (err) {
             res.status(500).json({ message: 'Failed to aggregate users by country', error: err.message });
         }
