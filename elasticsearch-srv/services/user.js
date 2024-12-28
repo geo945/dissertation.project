@@ -364,8 +364,8 @@ const UserService = {
             console.log(`Elasticsearch Query Completed: users.aggregate - Duration: ${endUserQueryTime - startUserQueryTime}ms.`);
 
             const result = resp.aggregations.users_by_country.countries.buckets.map(bucket => ({
-                country: bucket.key, // Country name
-                totalUsers: bucket.totalUsers.value, // Total number of users in this country
+                country: bucket.key,
+                totalUsers: bucket.totalUsers.value,
                 averageAge: bucket.averageAge.avgAge.value
             }));
 
